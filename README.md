@@ -1,41 +1,72 @@
 # LuCI Mobile
 
 <div align="center">
-  <a href="https://play.google.com/store/apps/details?id=com.cogwheel.LuCIMobile">
-    <img src="store-badges/google.webp" alt="Get LuCI Mobile on Google Play" height="56"/>
-  </a>
-  <a href="https://apps.apple.com/app/luci-mobile/id6749455847">
-    <img src="store-badges/apple.webp" alt="Download LuCI Mobile on the App Store" height="56"/>
-  </a>
-  <a href="https://apt.izzysoft.de/fdroid/index/apk/com.cogwheel.LuCIMobile">
-    <img src="store-badges/izzyondroid.webp" alt="Get LuCI Mobile on IzzyOnDroid" height="56"/>
-  </a>
-  <br><br>
-
-  <img src="https://shields.rbtlog.dev/simple/com.cogwheel.LuCIMobile" alt="Latest LuCI Mobile release"/>
-  <img src="https://img.shields.io/github/downloads/cogwheel0/luci-mobile/total?style=flat-square&amp;label=Downloads&amp;logo=github&amp;color=0A84FF" alt="Total GitHub downloads"/>
+  <sub><b>Rongyue E5 build</b> · fork of <a href="https://github.com/cogwheel0/luci-mobile">cogwheel0/luci-mobile</a> · source only, no app-store release</sub>
   <br><br>
 
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/flutter_01.png" alt="LuCI Mobile dashboard on Android" width="320"/>
 </div>
 
-LuCI Mobile is an open-source Flutter client for OpenWrt routers. It talks to LuCI RPC so you can check router health, inspect clients and interfaces, scan Wi-Fi networks, and handle common admin tasks from a phone.
+LuCI Mobile is an open-source Flutter client for OpenWrt routers. It talks to LuCI RPC so you can check router health, inspect clients and interfaces, scan Wi-Fi networks, and handle common admin tasks from a phone. This build extends that to the vendor control plane a Rongyue E5 exposes.
 
-## About this fork
+## About this build
 
-A personal fork of [cogwheel0/luci-mobile](https://github.com/cogwheel0/luci-mobile).
-The additions here are the services hub, OpenClash control, and the modem radio
-tab described below. Upstream is the canonical project, so anything that is not
-specific to those belongs there rather than here.
+**A build tuned for the Rongyue E5** (荣悦 E5) — a Unisoc UMS9621 mobile router
+running OpenWrt 25.12.5 with the `e5-mobile` kernel. It is a fork of
+[cogwheel0/luci-mobile](https://github.com/cogwheel0/luci-mobile), which stays the
+upstream project: everything that is not E5-specific is upstream's work, and bugs
+that are not specific to this build belong in upstream's tracker, not here.
 
-Licensed GPL-3.0, same as upstream. To pick up upstream changes:
+The E5 does not only speak plain LuCI. It ships its own control plane —
+`mu300dash`, `e5status`, `e5-sms` — and several features only exist behind it.
+This build teaches the app to use them.
+
+## What this build adds over upstream
+
+- **Services hub** — start, stop and restart `init.d` services and the plugin
+  services, folded into Settings instead of taking a sixth bottom tab.
+- **OpenClash control** — start, stop and restart the core, switch between rule,
+  global and direct mode, and pick a node in any proxy group of the active config.
+- **Radio control via `mu300dash`** — network mode, per-RAT LTE/NR band locks,
+  cell lock, re-apply after reboot, mobile data, and radio on/off per SIM slot.
+  Writes are asynchronous on the router side, so the app polls the lock job until
+  the modem settles instead of pretending the change landed.
+- **Telemetry from `e5status`** — signal, band, operator, dual-SIM state and
+  billing-cycle usage read from the vendor object, with `modemmanager` and `mmcli`
+  used only as a fallback.
+- **SMS through `e5-sms`** — the vendor's own message store, falling back to
+  `sms-tool` on builds that do not have it.
+
+None of this is assumed. Every E5 surface is probed first: if the backend does not
+answer, the tab or tile that depends on it disappears rather than showing controls
+that cannot work. On any other OpenWrt router the app behaves exactly as upstream.
+
+## Compatibility
+
+| | |
+| --- | --- |
+| Tested on | Rongyue E5, OpenWrt 25.12.5 r33051-f5dae5ece4, kernel 6.18.54-e5-mobile4 |
+| Hardware | Unisoc UMS9621 (`sprd,ums512-base`), dual SIM, front screen |
+| Needs for the extra tabs | `mu300dash` for radio control, `e5status` for telemetry, `e5-sms` for the vendor SMS store |
+| Without them | Those tabs are hidden; the rest of the app works as upstream |
+| Build | Not distributed through the app stores. Build it yourself with `flutter build apk` |
+
+## Following upstream
+
+Upstream stays the canonical project. To pull its changes:
 
 ```sh
 git fetch upstream
 git merge upstream/main
 ```
 
+`upstream` is already set as a remote here, and GitHub's *Sync fork* button does
+the same thing.
+
 ## What it does
+
+Everything in this list is upstream's feature set, unchanged. The E5 additions are
+listed further up.
 
 - Saves multiple router profiles and switches between them. A profile can include a fallback address for access from another network.
 - Shows throughput, CPU load, memory use, uptime, wireless signal, and interface status on one dashboard.
@@ -48,10 +79,7 @@ git merge upstream/main
 - Manages port forwards, traffic rules, zones and static routes.
 - Edits the hostname, timezone and description, and changes the router password.
 - Starts, stops and restarts services, and configures SQM, adblock, UPnP and DDNS.
-- Controls OpenClash: starts and stops the core, switches between rule, global and direct mode, and picks a proxy node from any group in the active config.
 - Reads cellular modems: signal, operator, connection state and traffic, edits the APN, and lists and sends SMS.
-- On mobile routers, also reports the metered data left in the billing cycle and the state of each SIM slot, and reads SMS through the vendor's own service (`e5-sms`) or `sms-tool`, whichever the router has.
-- On mobile routers with a vendor modem backend, switches mobile data and each SIM's radio on or off, and changes the network mode, the locked LTE/5G bands and the locked cell.
 - Runs ping, traceroute and nslookup from the router, and reads its system and kernel logs.
 - Keeps an activity feed of what changed, and on Android can notify about it in the background.
 - Shows traffic history per client where the router records it.
@@ -79,16 +107,20 @@ Credentials and router profiles are stored through `flutter_secure_storage`. The
 
 ## Install
 
-Use [Google Play](https://play.google.com/store/apps/details?id=com.cogwheel.LuCIMobile), the [Apple App Store](https://apps.apple.com/app/luci-mobile/id6749455847), or [IzzyOnDroid](https://apt.izzysoft.de/fdroid/index/apk/com.cogwheel.LuCIMobile).
-
-To run the source, install Flutter with Dart 3.8.1 or newer, then run:
+This build is source only — it is not published to any app store. Build an APK:
 
 ```bash
-git clone https://github.com/cogwheel0/luci-mobile.git
+git clone https://github.com/wzhen167/luci-mobile.git
 cd luci-mobile
 flutter pub get
-flutter run
+flutter build apk --release
 ```
+
+The upstream app is on [Google Play](https://play.google.com/store/apps/details?id=com.cogwheel.LuCIMobile),
+the [Apple App Store](https://apps.apple.com/app/luci-mobile/id6749455847) and
+[IzzyOnDroid](https://apt.izzysoft.de/fdroid/index/apk/com.cogwheel.LuCIMobile).
+That is the same app without the E5 additions described above, so none of the
+vendor modem controls are there.
 
 Useful checks:
 
@@ -136,10 +168,21 @@ ubus call luci-rpc getNetworkDevices '{}'
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow. Bug reports and focused pull requests are welcome.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the development workflow.
+
+Where a report belongs:
+
+- Something wrong with the app on any router, or with a feature that comes from
+  upstream → [cogwheel0/luci-mobile/issues](https://github.com/cogwheel0/luci-mobile/issues).
+- Something wrong with the E5 additions — the radio tab, the services hub,
+  OpenClash control, `e5status` telemetry or `e5-sms` → [this repo's
+  issues](https://github.com/wzhen167/luci-mobile/issues).
 
 ## License
 
-LuCI Mobile is licensed under [GPL-3.0](LICENSE). It is an independent project and is not affiliated with OpenWrt.
+GPL-3.0, see [LICENSE](LICENSE). Upstream is
+[cogwheel0/luci-mobile](https://github.com/cogwheel0/luci-mobile), released under
+the same license; this build keeps those terms and adds no restrictions of its own.
+LuCI Mobile is an independent project and is not affiliated with OpenWrt.
 
 Thanks to the OpenWrt and Flutter communities, the project contributors and testers, and [OpenWrtManager](https://github.com/hagaygo/OpenWrtManager) for early inspiration.

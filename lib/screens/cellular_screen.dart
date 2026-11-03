@@ -7,9 +7,11 @@ import 'package:luci_mobile/l10n/luci_localizations.dart';
 import 'package:luci_mobile/models/cellular.dart';
 import 'package:luci_mobile/models/router_capabilities.dart';
 import 'package:luci_mobile/models/uci_change.dart';
+import 'package:luci_mobile/screens/cellular_radio_tab.dart';
 import 'package:luci_mobile/services/cellular_planner.dart';
 import 'package:luci_mobile/services/cellular_service.dart';
 import 'package:luci_mobile/state/cellular_providers.dart';
+import 'package:luci_mobile/state/cellular_radio_providers.dart';
 import 'package:luci_mobile/state/feature_providers.dart';
 import 'package:luci_mobile/utils/format_bytes.dart';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
@@ -64,9 +66,13 @@ class _CellularScreenState extends ConsumerState<CellularScreen> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final async = ref.watch(cellularProvider);
+    // The radio tab exists only on routers whose firmware answers
+    // `mu300dash`. Null covers "not installed", "no permission" and "still
+    // loading" alike, which is the same outcome for the user: no fourth tab.
+    final radio = ref.watch(cellularRadioProvider).value;
 
     return DefaultTabController(
-      length: 3,
+      length: radio == null ? 3 : 4,
       child: Scaffold(
         appBar: LuciAppBar(
           title: l10n.cellular,
@@ -78,6 +84,7 @@ class _CellularScreenState extends ConsumerState<CellularScreen> {
               onPressed: () {
                 ref.invalidate(cellularProvider);
                 ref.invalidate(smsInboxProvider);
+                ref.invalidate(cellularRadioProvider);
               },
             ),
           ],
@@ -88,6 +95,7 @@ class _CellularScreenState extends ConsumerState<CellularScreen> {
               Tab(text: l10n.cellularOverview),
               Tab(text: l10n.cellularConfig),
               Tab(text: l10n.cellularMessages),
+              if (radio != null) Tab(text: l10n.cellularRadio),
             ],
           ),
         ),
@@ -120,6 +128,7 @@ class _CellularScreenState extends ConsumerState<CellularScreen> {
                       onEdit: _editApn,
                     ),
                     _SmsTab(snapshot: snapshot),
+                    if (radio != null) CellularRadioTab(state: radio),
                   ],
                 ),
         ),

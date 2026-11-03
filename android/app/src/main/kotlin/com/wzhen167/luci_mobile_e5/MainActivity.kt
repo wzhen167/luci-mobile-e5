@@ -1,4 +1,4 @@
-package com.cogwheel.LuCIMobile
+package com.wzhen167.luci_mobile_e5
 
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine

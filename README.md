@@ -50,6 +50,7 @@ that cannot work. On any other OpenWrt router the app behaves exactly as upstrea
 | Needs for the extra tabs | `mu300dash` for radio control, `e5status` for telemetry, `e5-sms` for the vendor SMS store |
 | Without them | Those tabs are hidden; the rest of the app works as upstream |
 | Build | `2.1.0+15`, arm64 release APK signed with this repo's own key and attached to each release |
+| Application id | `com.wzhen167.luci_mobile_e5` — distinct from upstream, so both apps can be installed at once |
 
 ## Following upstream
 
@@ -108,9 +109,12 @@ Credentials and router profiles are stored through `flutter_secure_storage`. The
 ## Install
 
 Download the APK from [Releases](https://github.com/wzhen167/luci-mobile-e5/releases).
-It is built for arm64, which is what the E5 is, and signed with this build's own
-key — so it will not install over an official LuCI Mobile. Uninstall that first,
-which also clears the router profiles it stored.
+It is built for arm64, which is what the E5 is.
+
+It uses its own application id, `com.wzhen167.luci_mobile_e5`, and its own signing
+key, so it installs **alongside** the official LuCI Mobile instead of replacing it.
+Both can sit on the same phone with separate router profiles. The launcher entry is
+called *LuCI Mobile E5* so the two are told apart.
 
 To build it yourself:
 

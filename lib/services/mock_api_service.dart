@@ -225,6 +225,25 @@ class MockApiService implements IApiService {
       ];
     }
 
+    if (object == 'e5status' && method == 'cells') {
+      // What "lock to the current cell" reads before it writes anything.
+      return [
+        0,
+        {
+          'cell': {
+            'sig_src': 'nr',
+            'lte': null,
+            'nr': {'band': 28, 'arfcn': 152890, 'pci': 669, 'rsrp': -86},
+            'sig': {'band': 28, 'arfcn': 152890, 'pci': 669, 'rsrp': -86},
+          },
+        },
+      ];
+    }
+
+    if (object == 'mu300dash') {
+      return _mockVendorLock(method, params);
+    }
+
     if (object != 'e5-sms') return null;
     switch (method) {
       case 'list':
@@ -264,6 +283,84 @@ class MockApiService implements IApiService {
         return [0, <String, dynamic>{}];
     }
     return null;
+  }
+
+  /// The vendor's `mu300dash` object: network lock, data and RF switches.
+  ///
+  /// Answers in the same shapes the real backend does, jobs included — the
+  /// lock writes are queued and polled there, and a mock that completed
+  /// inline would let a polling bug through unnoticed.
+  dynamic _mockVendorLock(String method, Map<String, dynamic>? params) {
+    switch (method) {
+      case 'lock_get':
+        return [0, _mockLock];
+      case 'sim_get':
+        return [
+          0,
+          {
+            'ok': true,
+            'data_sim': 0,
+            'saved_sim': 0,
+            'data_up': _mockDataUp,
+            'radio_enabled': [..._mockRadioEnabled],
+          },
+        ];
+      case 'lock_set':
+        final kind = params?['kind']?.toString() ?? '';
+        _applyMockLock(kind, params?['val']?.toString() ?? '');
+        return [
+          0,
+          {
+            'ok': 1,
+            'started': 1,
+            'id': 'mocksettingjob000000000000000000',
+            'op': kind,
+          },
+        ];
+      case 'lock_status':
+        return [
+          0,
+          {'state': 'done', 'ok': 1, 'id': params?['id']},
+        ];
+      case 'sim_radio_set':
+        final slot = int.tryParse(params?['slot']?.toString() ?? '0') ?? 0;
+        final enabled = params?['enabled'] == true;
+        if (slot >= 0 && slot < _mockRadioEnabled.length) {
+          _mockRadioEnabled[slot] = enabled;
+        }
+        return [
+          0,
+          {'ok': 1, 'slot': '$slot', 'enabled': enabled},
+        ];
+      case 'act':
+        final arg = params?['arg']?.toString() ?? '';
+        if (params?['op'] == 'data') _mockDataUp = arg == 'up';
+        return [
+          0,
+          {'ok': 1, 'op': '${params?['op']} $arg'},
+        ];
+    }
+    return null;
+  }
+
+  void _applyMockLock(String kind, String value) {
+    if (kind == 'mode') {
+      (_mockLock['mode'] as Map)['label'] = value;
+    } else if (kind == 'lte' || kind == 'nr') {
+      (_mockLock[kind] as Map)['locked'] = value;
+    } else if (kind == 'bands_default') {
+      (_mockLock['lte'] as Map)['locked'] = (_mockLock['caps'] as Map)['lte'];
+      (_mockLock['nr'] as Map)['locked'] = '';
+    } else if (kind == 'cell') {
+      final cells = _mockLock['cells'] as List;
+      cells.clear();
+      if (value != 'off') {
+        cells.add('nr:152890,669');
+      }
+      _mockLock['cell'] = cells.isEmpty ? '' : cells.first;
+    } else if (kind == 'auto_apply') {
+      _mockLock['auto_apply'] = value == 'on' ? 1 : 0;
+    }
   }
 
   /// The first id the vendor counter hands out in this mock.
@@ -339,6 +436,22 @@ class MockApiService implements IApiService {
   /// truncate the message. Timestamps are RFC 3339 because that is what the
   /// vendor backend reports; `sms-tool` passes whatever its firmware prints,
   /// so the model keeps the string it was given.
+  /// The vendor network-lock backend, mutated in place so a change made in
+  /// reviewer mode is visible on the next read.
+  final Map<String, dynamic> _mockLock = {
+    'mode': {'label': '5g4g', 'work': '131', 'gran': '1'},
+    'lte': {'locked': '1,3,5,8'},
+    'nr': {'locked': '28'},
+    'cells': <String>[],
+    'caps': {'lte': '1,3,5,8,34,38,39,40,41', 'nr': '1,28,41,78'},
+    'volte': {'enabled': true},
+    'vonr': {'enabled': true},
+    'cell': '',
+    'auto_apply': 1,
+  };
+  bool _mockDataUp = true;
+  final List<bool> _mockRadioEnabled = [true, false];
+
   final List<SmsMessage> _mockMessages = [
     const SmsMessage(
       index: 1,

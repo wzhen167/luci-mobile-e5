@@ -8,6 +8,7 @@ import 'package:luci_mobile/screens/cellular_screen.dart';
 import 'package:luci_mobile/services/cellular_service.dart';
 import 'package:luci_mobile/services/sms_inbox.dart';
 import 'package:luci_mobile/state/cellular_providers.dart';
+import 'package:luci_mobile/state/cellular_radio_providers.dart';
 import 'package:luci_mobile/state/feature_providers.dart';
 
 /// A router with one connected QMI modem, as the section should render it.
@@ -38,6 +39,10 @@ const _snapshot = CellularSnapshot(
 Widget _wrap(Widget child, {CellularSnapshot? snapshot}) => ProviderScope(
   overrides: [
     cellularProvider.overrideWith((ref) async => snapshot ?? _snapshot),
+    // This harness has no router behind it, so the radio tab is pinned off:
+    // its provider would otherwise reach for the real session, and mounting
+    // the app state is what these tests are deliberately not doing.
+    cellularRadioProvider.overrideWith((ref) async => null),
     featureProvider.overrideWith(
       (ref, feature) => const FeatureAvailability.available(),
     ),

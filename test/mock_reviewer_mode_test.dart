@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:luci_mobile/utils/uci_values.dart';
 import 'package:luci_mobile/models/openclash.dart';
 import 'package:luci_mobile/services/cellular_planner.dart';
+import 'package:luci_mobile/services/cellular_radio.dart';
 import 'package:luci_mobile/services/cellular_service.dart';
 import 'package:luci_mobile/services/client_config_planner.dart';
 import 'package:luci_mobile/services/mock_api_service.dart';
@@ -366,6 +367,33 @@ void main() {
       expect(snapshot.dataSim, 0);
       expect(snapshot.runtimeApn, isNotNull);
     });
+
+    // The radio tab reads three objects; without all three the switches and
+    // the lock rows would each report themselves unavailable in review.
+    test('the radio tab has locks, switches and a serving cell', () async {
+      final state = await CellularRadioService(MockApiService()).read(session);
+
+      expect(state, isNotNull);
+      expect(state!.mode, '5g4g');
+      expect(state.lteLocked, [1, 3, 5, 8]);
+      expect(state.nrLocked, [28]);
+      expect(state.dataUp, isTrue);
+      expect(state.radioEnabled, [true, false]);
+      expect(state.serving?.lockValue, 'nr:152890,669');
+    });
+
+    test(
+      'a lock written in reviewer mode is visible on the next read',
+      () async {
+        final api = MockApiService();
+        final service = CellularRadioService(api, wait: (_) async {});
+
+        await service.setBands(session, rat: 'nr', bands: [1, 28]);
+
+        final state = await service.read(session);
+        expect(state!.nrLocked, [1, 28]);
+      },
+    );
   });
 
   // Settings → OpenClash has to open on a running service with a controller:

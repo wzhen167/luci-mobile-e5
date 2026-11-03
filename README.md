@@ -21,6 +21,20 @@
 
 LuCI Mobile is an open-source Flutter client for OpenWrt routers. It talks to LuCI RPC so you can check router health, inspect clients and interfaces, scan Wi-Fi networks, and handle common admin tasks from a phone.
 
+## About this fork
+
+A personal fork of [cogwheel0/luci-mobile](https://github.com/cogwheel0/luci-mobile).
+The additions here are the services hub, OpenClash control, and the modem radio
+tab described below. Upstream is the canonical project, so anything that is not
+specific to those belongs there rather than here.
+
+Licensed GPL-3.0, same as upstream. To pick up upstream changes:
+
+```sh
+git fetch upstream
+git merge upstream/main
+```
+
 ## What it does
 
 - Saves multiple router profiles and switches between them. A profile can include a fallback address for access from another network.

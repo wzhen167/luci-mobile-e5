@@ -1,7 +1,7 @@
 # LuCI Mobile
 
 <div align="center">
-  <sub><b>Rongyue E5 build</b> · fork of <a href="https://github.com/cogwheel0/luci-mobile">cogwheel0/luci-mobile</a> · source only, no app-store release</sub>
+  <sub><b>Rongyue E5 build</b> · fork of <a href="https://github.com/cogwheel0/luci-mobile">cogwheel0/luci-mobile</a> · arm64 APK in <a href="https://github.com/wzhen167/luci-mobile-e5/releases">Releases</a></sub>
   <br><br>
 
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/flutter_01.png" alt="LuCI Mobile dashboard on Android" width="320"/>
@@ -49,7 +49,7 @@ that cannot work. On any other OpenWrt router the app behaves exactly as upstrea
 | Hardware | Unisoc UMS9621 (`sprd,ums512-base`), dual SIM, front screen |
 | Needs for the extra tabs | `mu300dash` for radio control, `e5status` for telemetry, `e5-sms` for the vendor SMS store |
 | Without them | Those tabs are hidden; the rest of the app works as upstream |
-| Build | Not distributed through the app stores. Build it yourself with `flutter build apk` |
+| Build | `2.1.0+15`, arm64 release APK signed with this repo's own key and attached to each release |
 
 ## Following upstream
 
@@ -107,10 +107,15 @@ Credentials and router profiles are stored through `flutter_secure_storage`. The
 
 ## Install
 
-This build is source only — it is not published to any app store. Build an APK:
+Download the APK from [Releases](https://github.com/wzhen167/luci-mobile-e5/releases).
+It is built for arm64, which is what the E5 is, and signed with this build's own
+key — so it will not install over an official LuCI Mobile. Uninstall that first,
+which also clears the router profiles it stored.
+
+To build it yourself:
 
 ```bash
-git clone https://github.com/wzhen167/luci-mobile.git
+git clone https://github.com/wzhen167/luci-mobile-e5.git
 cd luci-mobile
 flutter pub get
 flutter build apk --release
@@ -176,7 +181,7 @@ Where a report belongs:
   upstream → [cogwheel0/luci-mobile/issues](https://github.com/cogwheel0/luci-mobile/issues).
 - Something wrong with the E5 additions — the radio tab, the services hub,
   OpenClash control, `e5status` telemetry or `e5-sms` → [this repo's
-  issues](https://github.com/wzhen167/luci-mobile/issues).
+  issues](https://github.com/wzhen167/luci-mobile-e5/issues).
 
 ## License
 

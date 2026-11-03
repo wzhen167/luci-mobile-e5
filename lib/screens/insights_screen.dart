@@ -12,6 +12,9 @@ import 'package:luci_mobile/widgets/luci_hub_tile.dart';
 
 /// Read-only visibility into what the router is doing: logs, diagnostics and
 /// activity.
+///
+/// Reached from Settings rather than from the shell's bottom bar, so it is
+/// always a pushed route: it takes a back button and never the drawer menu.
 class InsightsScreen extends ConsumerWidget {
   const InsightsScreen({super.key});
 
@@ -19,7 +22,7 @@ class InsightsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     return Scaffold(
-      appBar: LuciAppBar(title: l10n.insights),
+      appBar: LuciAppBar(title: l10n.insights, showBack: true),
       body: ListView(
         children: [
           LuciSectionHeader(l10n.insights),

@@ -144,7 +144,7 @@ class _ClientsScreenState extends ConsumerState<ClientsScreen> {
       builder: (context, snapshot) {
         final aggregatedClients = snapshot.data ?? [];
         return Scaffold(
-          appBar: LuciAppBar(title: context.l10n.clients),
+          appBar: LuciAppBar(title: context.l10n.clients, showMenu: true),
           body: Stack(
             children: [
               LuciPullToRefresh(

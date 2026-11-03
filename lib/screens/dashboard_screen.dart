@@ -1429,6 +1429,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return Scaffold(
       appBar: LuciAppBar(
         centerTitle: true,
+        showMenu: true,
         title: null, // Always use titleWidget now
         titleWidget: routers.length > 1
             ? Center(

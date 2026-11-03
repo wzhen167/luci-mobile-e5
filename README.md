@@ -34,6 +34,9 @@ LuCI Mobile is an open-source Flutter client for OpenWrt routers. It talks to Lu
 - Manages port forwards, traffic rules, zones and static routes.
 - Edits the hostname, timezone and description, and changes the router password.
 - Starts, stops and restarts services, and configures SQM, adblock, UPnP and DDNS.
+- Controls OpenClash: starts and stops the core, switches between rule, global and direct mode, and picks a proxy node from any group in the active config.
+- Reads cellular modems: signal, operator, connection state and traffic, edits the APN, and lists and sends SMS.
+- On mobile routers, also reports the metered data left in the billing cycle and the state of each SIM slot, and reads SMS through the vendor's own service (`e5-sms`) or `sms-tool`, whichever the router has.
 - Runs ping, traceroute and nslookup from the router, and reads its system and kernel logs.
 - Keeps an activity feed of what changed, and on Android can notify about it in the background.
 - Shows traffic history per client where the router records it.

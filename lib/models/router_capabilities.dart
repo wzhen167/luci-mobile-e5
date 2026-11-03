@@ -44,6 +44,29 @@ enum RouterFeature {
   upnp,
   wireguardServer,
   openvpnServer,
+
+  /// Editing the APN and credentials of a cellular `network` interface.
+  ///
+  /// Reading the section needs nothing beyond `uci.get`, which the stock ACL
+  /// grants; writing does, so this gate covers the write only.
+  cellularApn,
+
+  /// Sending and deleting SMS through `sms-tool`.
+  ///
+  /// `file.exec` is granted per exact command path in rpcd, not per object,
+  /// so this verdict is necessary but not sufficient: a router that grants
+  /// `exec` only for its own helper scripts still reports the feature as
+  /// available and then fails on the first call. The screen surfaces that
+  /// failure with the path in it, which is the only honest answer available
+  /// without reading the router's ACL file line by line.
+  cellularSms,
+
+  /// Sending and deleting SMS through a vendor ubus object (`e5-sms`).
+  ///
+  /// The common case on mobile routers, which ship their own SMS app rather
+  /// than `luci-app-sms-tool`. Read and write are separate grants in rpcd, so
+  /// a router can list messages and refuse to send them.
+  cellularVendorSms,
 }
 
 /// Why a feature is not offered. The distinction matters: a missing package is
@@ -295,6 +318,15 @@ class RouterCapabilities {
         return _requireConfig('network', 'wireguard-tools', write: true);
       case RouterFeature.openvpnServer:
         return _requireConfig('openvpn', 'openvpn-openssl', write: true);
+      case RouterFeature.cellularApn:
+        // `network` is part of every install, so the config check only fails
+        // on a router that is not OpenWrt at all. The interesting half is the
+        // write permission.
+        return _requireConfig('network', 'network', write: true);
+      case RouterFeature.cellularSms:
+        return _requireUbus('file', const ['exec']);
+      case RouterFeature.cellularVendorSms:
+        return _requireUbus('e5-sms', const ['list']);
     }
   }
 

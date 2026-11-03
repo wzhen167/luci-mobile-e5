@@ -2,13 +2,30 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:luci_mobile/design/luci_design_system.dart';
 import 'package:luci_mobile/l10n/luci_localizations.dart';
+import 'package:luci_mobile/navigation/luci_shell_scope.dart';
 
 class LuciAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String? title;
   final Widget? titleWidget;
   final bool centerTitle;
   final bool showBack;
+
+  /// Offers the shell's navigation drawer as a leading menu button.
+  ///
+  /// The button only appears when the section is mounted inside the shell
+  /// (see [LuciShellScope]): a pushed detail route has nothing to open and
+  /// keeps its back button instead, even if a caller passes true.
+  final bool showMenu;
+
   final List<Widget>? actions;
+
+  /// A [TabBar] or other strip below the title.
+  ///
+  /// Sections that split into tabs need the same chrome as the rest — a raw
+  /// `AppBar` next to a [LuciAppBar] picks a different surface and leaves the
+  /// status bar reading against the wrong colour.
+  final PreferredSizeWidget? bottom;
+
   final Color? backgroundColor;
   final double elevation;
 
@@ -18,7 +35,9 @@ class LuciAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.titleWidget,
     this.centerTitle = true,
     this.showBack = false,
+    this.showMenu = false,
     this.actions,
+    this.bottom,
     this.backgroundColor,
     this.elevation = 2.0,
   });
@@ -26,6 +45,9 @@ class LuciAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final shell = showMenu && !showBack
+        ? LuciShellScope.maybeOf(context)
+        : null;
     return AppBar(
       automaticallyImplyLeading: false,
       backgroundColor: backgroundColor ?? theme.colorScheme.surface,
@@ -42,7 +64,13 @@ class LuciAppBar extends StatelessWidget implements PreferredSizeWidget {
               onPressed: () => Navigator.of(context).maybePop(),
               tooltip: context.l10n.back,
             )
-          : null,
+          : shell == null
+          ? null
+          : IconButton(
+              icon: Icon(Icons.menu, color: theme.colorScheme.onSurface),
+              onPressed: shell.openDrawer,
+              tooltip: context.l10n.openMenu,
+            ),
       title:
           titleWidget ??
           (title != null
@@ -55,6 +83,7 @@ class LuciAppBar extends StatelessWidget implements PreferredSizeWidget {
                 )
               : null),
       actions: actions,
+      bottom: bottom,
       shadowColor: theme.shadowColor,
       surfaceTintColor: backgroundColor ?? theme.colorScheme.surface,
       systemOverlayStyle: Theme.of(context).brightness == Brightness.dark
@@ -68,7 +97,8 @@ class LuciAppBar extends StatelessWidget implements PreferredSizeWidget {
   }
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize =>
+      Size.fromHeight(kToolbarHeight + (bottom?.preferredSize.height ?? 0));
 }
 
 class LuciSectionHeader extends StatelessWidget {

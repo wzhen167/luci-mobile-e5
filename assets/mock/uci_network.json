@@ -1,0 +1,78 @@
+{
+  "values": {
+    "loopback": {
+      ".anonymous": false,
+      ".type": "interface",
+      ".name": "loopback",
+      ".index": 0,
+      "device": "lo",
+      "proto": "static",
+      "ipaddr": "127.0.0.1",
+      "netmask": "255.0.0.0"
+    },
+    "globals": {
+      ".anonymous": false,
+      ".type": "globals",
+      ".name": "globals",
+      ".index": 1,
+      "ula_prefix": "fd8e:3f1c:9a20::/48"
+    },
+    "lan": {
+      ".anonymous": false,
+      ".type": "interface",
+      ".name": "lan",
+      ".index": 2,
+      "device": "br-lan",
+      "proto": "static",
+      "ipaddr": "192.168.1.1",
+      "netmask": "255.255.255.0",
+      "ip6assign": "60"
+    },
+    "wan": {
+      ".anonymous": false,
+      ".type": "interface",
+      ".name": "wan",
+      ".index": 3,
+      "device": "eth0",
+      "proto": "dhcp"
+    },
+    "wan6": {
+      ".anonymous": false,
+      ".type": "interface",
+      ".name": "wan6",
+      ".index": 4,
+      "device": "eth0",
+      "proto": "dhcpv6"
+    },
+    "wwan": {
+      ".anonymous": false,
+      ".type": "interface",
+      ".name": "wwan",
+      ".index": 5,
+      "proto": "qmi",
+      "device": "/dev/cdc-wdm0",
+      "apn": "internet.telekom",
+      "username": "telekom",
+      "password": "tm",
+      "pincode": "1234",
+      "pdptype": "ipv4v6",
+      "auth": "pap",
+      "metric": "10",
+      "mtu": "1500",
+      "defaultroute": "1",
+      "disabled": "0"
+    },
+    "wwan2": {
+      ".anonymous": false,
+      ".type": "interface",
+      ".name": "wwan2",
+      ".index": 6,
+      "proto": "mbim",
+      "device": "/dev/cdc-wdm1",
+      "apn": "web.vodafone.de",
+      "pdptype": "ipv4",
+      "metric": "20",
+      "disabled": "1"
+    }
+  }
+}

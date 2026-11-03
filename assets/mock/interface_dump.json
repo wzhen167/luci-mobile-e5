@@ -155,6 +155,58 @@
         "dns-server": [],
         "dns-search": []
       }
+    },
+    {
+      "interface": "wwan",
+      "up": true,
+      "pending": false,
+      "available": true,
+      "autostart": true,
+      "dynamic": false,
+      "proto": "qmi",
+      "device": "/dev/cdc-wdm0",
+      "l3_device": "wwan0",
+      "metric": 10,
+      "dns_metric": 10,
+      "delegation": true,
+      "uptime": 3612,
+      "ipv4-address": [{
+        "address": "10.64.12.33",
+        "mask": 30,
+        "ptpaddress": "10.64.12.34"
+      }],
+      "ipv6-address": [{
+        "address": "2a02:908:1a2b:3c40:9e1f:7a2c:4410:8bd1",
+        "mask": 64,
+        "ptpaddress": ""
+      }],
+      "ipv6-prefix": [],
+      "ipv6-prefix-assignment": [],
+      "route": [{
+        "target": "0.0.0.0",
+        "mask": 0,
+        "nexthop": "10.64.12.34",
+        "source": "10.64.12.33"
+      }],
+      "dns-server": ["10.64.12.34", "2a02:908:2:d8ff::1"],
+      "dns-search": ["telekom.de"],
+      "data": {
+        "rx_bytes": 1843209112,
+        "tx_bytes": 214883004
+      },
+      "statistics": {
+        "rx_bytes": 1843209112,
+        "tx_bytes": 214883004,
+        "rx_packets": 1402811,
+        "tx_packets": 190442
+      },
+      "inactive": {
+        "ipv4-address": [],
+        "ipv6-address": [],
+        "route": [],
+        "dns-server": [],
+        "dns-search": []
+      }
     }
   ]
 }

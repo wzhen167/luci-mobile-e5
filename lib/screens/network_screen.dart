@@ -87,7 +87,7 @@ class _NetworkScreenState extends ConsumerState<NetworkScreen> {
     final interfaces = _interfaceSummary(appState.dashboardData);
 
     return Scaffold(
-      appBar: LuciAppBar(title: l10n.network),
+      appBar: LuciAppBar(title: l10n.network, showMenu: true),
       body: RefreshIndicator(
         onRefresh: () => ref.read(appStateProvider).fetchDashboardData(),
         child: ListView(

@@ -5,8 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:luci_mobile/main.dart';
 import 'package:luci_mobile/screens/login_screen.dart';
 import 'package:luci_mobile/screens/app_preferences_screen.dart';
+import 'package:luci_mobile/screens/insights_screen.dart';
 import 'package:luci_mobile/screens/notifications_screen.dart';
-import 'package:luci_mobile/screens/services_screen.dart';
+import 'package:luci_mobile/screens/openclash_screen.dart';
+import 'package:luci_mobile/screens/services_hub_screen.dart';
 import 'package:luci_mobile/screens/system_settings_screen.dart';
 import 'package:luci_mobile/widgets/luci_app_bar.dart';
 import 'package:luci_mobile/design/luci_design_system.dart';
@@ -282,7 +284,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: LuciAppBar(title: context.l10n.settings),
+      appBar: LuciAppBar(title: context.l10n.settings, showMenu: true),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(vertical: LuciSpacing.sm),
         child: Column(
@@ -337,7 +339,42 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (context) => const ServicesScreen(),
+                            builder: (context) => const ServicesHubScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    // OpenClash is a service the user configures once and then
+                    // leaves alone, which is a Settings tile — not a bar slot
+                    // competing with Clients. Its screen still has the live
+                    // state, the switches and the node picker.
+                    LuciHubTile(
+                      icon: Icons.shield_outlined,
+                      iconColor: Theme.of(context).colorScheme.primary,
+                      title: context.l10n.openClash,
+                      subtitle: context.l10n.openClashDescription,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const OpenClashScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    // Insights used to hold a bottom-bar slot. It is a
+                    // read-only group of four pages, so it moved here when
+                    // Cellular needed the slot: it stays one entry that opens
+                    // the same hub, rather than four tiles flattened into
+                    // Settings.
+                    LuciHubTile(
+                      icon: Icons.monitor_heart_outlined,
+                      iconColor: Theme.of(context).colorScheme.primary,
+                      title: context.l10n.insights,
+                      subtitle: context.l10n.insightsHubSubtitle,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const InsightsScreen(),
                           ),
                         );
                       },

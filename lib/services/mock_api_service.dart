@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:luci_mobile/services/interfaces/api_service_interface.dart';
 import 'package:luci_mobile/config/app_config.dart';
+import 'package:luci_mobile/models/cellular.dart';
 import 'package:luci_mobile/models/service_status.dart';
 import 'package:luci_mobile/models/station_info.dart';
+import 'package:luci_mobile/services/sms_tool.dart';
 
 class MockApiService implements IApiService {
   static final Random _random = Random();
@@ -170,6 +172,245 @@ class MockApiService implements IApiService {
     ];
   }
 
+  /// The one `file.exec` hook: every shell-out reviewer mode has to fake.
+  ///
+  /// Split from the call sites so `call` and `callSimple` cannot drift — they
+  /// are two copies of the same body, and a mock that answers differently
+  /// depending on which entry point a screen happens to use is a bug that
+  /// only shows up in the demo.
+  dynamic _mockFileExec(Map<String, dynamic>? params) {
+    final command = params?['command']?.toString() ?? '';
+    if (command.contains('nlbwmon-action')) return _mockNlbwmon(params);
+    if (command == SmsTool.binary) return _mockSmsTool(params);
+    return null;
+  }
+
+  /// The vendor objects an E5-class mobile router answers.
+  ///
+  /// These are what the Cellular section actually reads in the field: the
+  /// standard `network.interface dump` has no traffic counters and no APN on
+  /// this firmware, and OpenWrt ships no SMS service at all. Modelling them
+  /// here is the difference between a demo that shows the feature and one that
+  /// shows an empty screen.
+  dynamic _mockVendor(
+    String object,
+    String method,
+    Map<String, dynamic>? params,
+  ) {
+    if (object == 'e5status' && method == 'status') {
+      return [
+        0,
+        {
+          'info': {
+            'wan': {'up': 1, 'proto': 'modemmanager', 'apn': 'cmnet'},
+            'modem': {
+              'data_sim': 0,
+              'sims': [
+                {'slot': 0, 'state': 'ready'},
+                {'slot': 1, 'state': 'absent'},
+              ],
+            },
+            'traffic': {
+              'today_used': 26116122266,
+              'cycle_used': 80417777370,
+              'cycle_start': '2026-11-01',
+              'cycle_end': '2026-12-01',
+              'monthly_limit': 390000000000,
+              'remaining': 309582222630,
+              'over_limit': false,
+              'slot': 0,
+            },
+          },
+        },
+      ];
+    }
+
+    if (object != 'e5-sms') return null;
+    switch (method) {
+      case 'list':
+        return [
+          0,
+          {
+            'messages': [for (final m in _mockMessages) _smsVendorRow(m)],
+          },
+        ];
+      case 'sim':
+        return [
+          0,
+          {'card': 0, 'name': 'SIM1', 'operator': '中国移动', 'state': 'connected'},
+        ];
+      case 'send':
+        final number = params?['number']?.toString() ?? '';
+        final text = params?['text']?.toString() ?? '';
+        if (number.isEmpty || text.isEmpty) return null;
+        final next = _nextSmsIndex();
+        _mockMessages.add(
+          SmsMessage(
+            index: next,
+            id: '${_smsVendorIdBase + next}',
+            card: 0,
+            sim: 'SIM1',
+            sender: number,
+            timestamp: _smsTimestamp(),
+            body: text,
+          ),
+        );
+        return [0, <String, dynamic>{}];
+      case 'delete':
+        final id = params?['id'];
+        _mockMessages.removeWhere(
+          (m) => m.id == '$id' || _smsVendorIdBase + m.index == id,
+        );
+        return [0, <String, dynamic>{}];
+    }
+    return null;
+  }
+
+  /// The first id the vendor counter hands out in this mock.
+  static const int _smsVendorIdBase = 1000000000;
+
+  int _nextSmsIndex() => _mockMessages.isEmpty
+      ? 1
+      : _mockMessages.map((m) => m.index).reduce(max) + 1;
+
+  /// A message in the vendor's shape: `id` is the address, `card` the slot.
+  static Map<String, dynamic> _smsVendorRow(SmsMessage message) => {
+    'id': int.tryParse(message.id ?? '') ?? _smsVendorIdBase + message.index,
+    'card': message.card ?? 0,
+    'sim': message.sim ?? 'SIM1',
+    'number': message.sender ?? '',
+    'text': message.body,
+    'time': message.timestamp ?? '',
+    'state': 'received',
+    'direction': 'in',
+    'unread': message.unread,
+  };
+
+  /// Answers `sms-tool` for the Cellular section's Messages tab.
+  ///
+  /// Stateful on purpose: a reviewer sends a message and expects it in the
+  /// list, deletes one and expects it gone. Same reason the UCI overlay
+  /// exists — a control that snaps back reads as broken, not as a mock.
+  dynamic _mockSmsTool(Map<String, dynamic>? params) {
+    final args = params?['params'];
+    final list = args is List
+        ? [for (final a in args) a.toString()]
+        : <String>[];
+    // [device, subcommand, …args]; a shorter call is not one this can answer.
+    if (list.length < 2) return null;
+
+    switch (list[1]) {
+      case 'list':
+        return _execOk([for (final m in _mockMessages) _smsRow(m)].join('\n'));
+
+      case 'send':
+        if (list.length < 4) {
+          return _execOk('', code: 2, stderr: 'sms-tool: missing argument');
+        }
+        final next = _nextSmsIndex();
+        _mockMessages.add(
+          SmsMessage(
+            index: next,
+            id: '${_smsVendorIdBase + next}',
+            sender: list[2],
+            timestamp: _smsTimestamp(),
+            body: list.sublist(3).join(' '),
+          ),
+        );
+        return _execOk('OK');
+
+      case 'delete':
+        if (list.length < 3) {
+          return _execOk('', code: 2, stderr: 'sms-tool: missing argument');
+        }
+        _mockMessages.removeWhere((m) => m.index.toString() == list[2]);
+        return _execOk('OK');
+
+      case 'at':
+        return _execOk(_mockAtAnswer(list.length > 2 ? list[2] : ''));
+    }
+    return null;
+  }
+
+  /// The modem's storage, mutated by send/delete above.
+  ///
+  /// One row carries a semicolon inside the body: the shell-out path ships
+  /// text verbatim, and the parser has to rejoin those columns rather than
+  /// truncate the message. Timestamps are RFC 3339 because that is what the
+  /// vendor backend reports; `sms-tool` passes whatever its firmware prints,
+  /// so the model keeps the string it was given.
+  final List<SmsMessage> _mockMessages = [
+    const SmsMessage(
+      index: 1,
+      id: '1000000017',
+      sim: 'SIM1',
+      card: 0,
+      sender: '+491701234567',
+      timestamp: '2026-11-02T09:14:22+08:00',
+      unread: true,
+      body: 'Ihr Einmalcode lautet 481920. Er ist 10 Minuten gueltig.',
+    ),
+    const SmsMessage(
+      index: 2,
+      id: '1000000016',
+      sim: 'SIM1',
+      card: 0,
+      sender: 'Telekom',
+      timestamp: '2026-11-01T18:02:41+08:00',
+      body: 'Ihr Datenvolumen ist zu 80% verbraucht. Restvolumen: 3,2 GB.',
+    ),
+    const SmsMessage(
+      index: 3,
+      id: '1000000015',
+      sim: 'SIM1',
+      card: 0,
+      sender: '+493012345678',
+      timestamp: '2026-10-30T11:47:05+08:00',
+      body: 'Termin bestaetigt; Details folgen per E-Mail.',
+    ),
+  ];
+
+  static String _smsRow(SmsMessage message) => [
+    '${message.index}',
+    message.sender ?? '',
+    message.timestamp ?? '',
+    message.unread ? 'REC UNREAD' : 'REC READ',
+    message.body,
+  ].join(';');
+
+  /// A timestamp in the RFC 3339 shape the vendor backend reports.
+  static String _smsTimestamp() {
+    String two(int v) => v.toString().padLeft(2, '0');
+    final now = DateTime.now();
+    return '${now.year}-${two(now.month)}-${two(now.day)}T'
+        '${two(now.hour)}:${two(now.minute)}:${two(now.second)}+08:00';
+  }
+
+  /// Answers the AT commands the app actually sends; anything else gets a
+  /// bare `OK`, which is what a module does for a command it understands.
+  static String _mockAtAnswer(String command) {
+    final upper = command.toUpperCase();
+    if (upper.startsWith('AT+CSQ')) return '+CSQ: 24,99\r\n\r\nOK';
+    if (upper.startsWith('AT+COPS')) {
+      return '+COPS: 0,0,"Telekom.de",7\r\n\r\nOK';
+    }
+    if (upper.startsWith('AT+CREG') || upper.startsWith('AT+CEREG')) {
+      return '+CREG: 0,1\r\n\r\nOK';
+    }
+    if (upper.startsWith('AT+CGSN')) return '861107037891430\r\n\r\nOK';
+    return '\r\nOK';
+  }
+
+  /// The `file.exec` envelope rpcd returns.
+  static List<Object> _execOk(
+    String stdout, {
+    int code = 0,
+    String stderr = '',
+  }) => [
+    0,
+    {'code': code, 'stdout': stdout, 'stderr': stderr},
+  ];
+
   @override
   Future<dynamic> call(
     String ipAddress,
@@ -191,12 +432,13 @@ class MockApiService implements IApiService {
       final overlaid = await _uciGetFromOverlay(object, method, params);
       if (overlaid != null) return overlaid;
 
-      if (object == 'file' &&
-          method == 'exec' &&
-          (params?['command']?.toString() ?? '').contains('nlbwmon-action')) {
-        final nlbw = _mockNlbwmon(params);
-        if (nlbw != null) return nlbw;
-      }
+      final vendor = _mockVendor(object, method, params);
+      if (vendor != null) return vendor;
+
+      final exec = object == 'file' && method == 'exec'
+          ? _mockFileExec(params)
+          : null;
+      if (exec != null) return exec;
 
       // Return appropriate mock data based on object and method
       final mockDataFile = _getMockDataFile(object, method, params);
@@ -252,12 +494,13 @@ class MockApiService implements IApiService {
       final overlaid = await _uciGetFromOverlay(object, method, params);
       if (overlaid != null) return overlaid;
 
-      if (object == 'file' &&
-          method == 'exec' &&
-          (params['command']?.toString() ?? '').contains('nlbwmon-action')) {
-        final nlbw = _mockNlbwmon(params);
-        if (nlbw != null) return nlbw;
-      }
+      final vendor = _mockVendor(object, method, params);
+      if (vendor != null) return vendor;
+
+      final exec = object == 'file' && method == 'exec'
+          ? _mockFileExec(params)
+          : null;
+      if (exec != null) return exec;
 
       // Return appropriate mock data based on object and method
       final mockDataFile = _getMockDataFile(object, method, params);
@@ -432,6 +675,10 @@ class MockApiService implements IApiService {
             return 'uci_upnpd.json';
           case 'ddns':
             return 'uci_ddns.json';
+          case 'network':
+            return 'uci_network.json';
+          case 'openclash':
+            return 'uci_openclash.json';
           default:
             return null;
         }
@@ -583,6 +830,29 @@ class MockApiService implements IApiService {
                 },
               ],
             },
+          },
+        ];
+
+      case 'modemmanager.info':
+        // `ubus call modemmanager info` on a Quectel EC25: the backend
+        // reports signal as a percentage, not dBm, and keeps the SIM
+        // identifiers flat next to the operator.
+        return [
+          0,
+          {
+            'modem': [
+              {
+                'device': 'wwan0',
+                'model': 'Quectel EC25-E',
+                'operator': 'Telekom.de',
+                'technology': 'lte',
+                'signal': '68',
+                'state': 'registered',
+                'imsi': '262019876543210',
+                'iccid': '89490123456789012345',
+                'imei': '861107037891430',
+              },
+            ],
           },
         ];
 
@@ -1379,6 +1649,7 @@ class MockApiService implements IApiService {
       'luci',
       'network',
       'nlbwmon',
+      'openclash',
       'rpcd',
       'sqm',
       'system',
@@ -1516,6 +1787,7 @@ class MockApiService implements IApiService {
       'file': {'*'},
       'rc': {'*'},
       'network.interface': {'*'},
+      'modemmanager': {'*'},
       'session': {'*'},
     };
   }
@@ -1640,6 +1912,10 @@ class MockApiService implements IApiService {
     'uhttpd': (true, true),
     'cron': (true, false),
     'sysntpd': (true, true),
+    // Present and running so the Settings → OpenClash screen has a service to
+    // talk to; without it reviewer mode would open straight onto "not
+    // installed" and never exercise the status or node paths.
+    'openclash': (true, true),
   };
 
   @override

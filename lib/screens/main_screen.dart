@@ -3,10 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:luci_mobile/l10n/luci_localizations.dart';
 import 'package:luci_mobile/main.dart';
+import 'package:luci_mobile/navigation/app_drawer.dart';
+import 'package:luci_mobile/navigation/luci_destination.dart';
+import 'package:luci_mobile/navigation/luci_shell_scope.dart';
 import 'package:luci_mobile/navigation/luci_tab.dart';
+import 'package:luci_mobile/screens/cellular_screen.dart';
 import 'package:luci_mobile/screens/clients_screen.dart';
 import 'package:luci_mobile/screens/dashboard_screen.dart';
-import 'package:luci_mobile/screens/insights_screen.dart';
 import 'package:luci_mobile/screens/network_screen.dart';
 import 'package:luci_mobile/screens/settings_screen.dart';
 import 'package:luci_mobile/widgets/luci_navigation_enhancements.dart';
@@ -22,6 +25,8 @@ class MainScreen extends ConsumerStatefulWidget {
 }
 
 class _MainScreenState extends ConsumerState<MainScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
   LuciTab _selected = LuciTab.dashboard;
   String? _pendingInterface;
 
@@ -56,50 +61,21 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       onConsumed: _clearPendingInterface,
     ),
     LuciTab.clients => const ClientsScreen(),
-    LuciTab.insights => const InsightsScreen(),
+    LuciTab.cellular => const CellularScreen(),
     LuciTab.settings => const SettingsScreen(),
   };
 
   void _select(LuciTab tab) {
+    if (tab == _selected) return;
     setState(() => _selected = tab);
     if (tab != LuciTab.network) _clearPendingInterface();
   }
 
-  ({IconData filled, IconData outlined, String label}) _destination(
-    LuciTab tab,
-    BuildContext context,
-  ) {
-    final l10n = context.l10n;
-    return switch (tab) {
-      LuciTab.dashboard => (
-        filled: Icons.dashboard,
-        outlined: Icons.dashboard_outlined,
-        label: l10n.dashboard,
-      ),
-      LuciTab.network => (
-        filled: Icons.lan,
-        outlined: Icons.lan_outlined,
-        label: l10n.network,
-      ),
-      LuciTab.clients => (
-        filled: Icons.people,
-        outlined: Icons.people_outline,
-        label: l10n.clients,
-      ),
-      LuciTab.insights => (
-        // `insights` is a chart with a sparkle on it, which now reads as
-        // "AI" rather than "logs, traffic and diagnostics". A vitals line
-        // says what this tab actually holds.
-        filled: Icons.monitor_heart,
-        outlined: Icons.monitor_heart_outlined,
-        label: l10n.insights,
-      ),
-      LuciTab.settings => (
-        filled: Icons.settings,
-        outlined: Icons.settings_outlined,
-        label: l10n.settings,
-      ),
-    };
+  /// Drawer selection goes through the same reboot lockout as the bottom bar:
+  /// the drawer must not be a way around a disabled destination.
+  void _selectFromDrawer(LuciTab tab, {required bool isRebooting}) {
+    if (isRebooting && !tab.allowedDuringReboot) return;
+    _select(tab);
   }
 
   @override
@@ -127,37 +103,50 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       });
     }
 
-    return Scaffold(
-      body: LuciTabTransition(
-        transitionKey: 'tab_${_selected.name}',
-        child: _bodyFor(_selected),
-      ),
-      bottomNavigationBar: Builder(
-        builder: (context) {
-          final isRebooting = ref.watch(
-            appStateProvider.select((state) => state.isRebooting),
-          );
-          final scheme = Theme.of(context).colorScheme;
+    final isRebooting = appState.isRebooting;
+    final routerLabel = appState.currentSession?.ipAddress;
 
-          return NavigationBar(
-            // Five labels overflow in German and Russian at narrow widths;
-            // showing only the selected one keeps them readable without
-            // truncating.
-            labelBehavior: MediaQuery.sizeOf(context).width < 400
-                ? NavigationDestinationLabelBehavior.onlyShowSelected
-                : NavigationDestinationLabelBehavior.alwaysShow,
-            selectedIndex: _selected.index,
-            onDestinationSelected: (index) {
-              final tab = LuciTab.fromIndex(index);
-              if (isRebooting && !tab.allowedDuringReboot) return;
-              _select(tab);
-            },
-            destinations: [
-              for (final tab in LuciTab.values)
-                _buildDestination(context, tab, isRebooting, scheme),
-            ],
-          );
-        },
+    return LuciShellScope(
+      openDrawer: () => _scaffoldKey.currentState?.openDrawer(),
+      child: Scaffold(
+        key: _scaffoldKey,
+        drawer: AppDrawer(
+          selected: _selected,
+          routerLabel: routerLabel,
+          onSelect: (tab) => _selectFromDrawer(tab, isRebooting: isRebooting),
+        ),
+        body: LuciTabTransition(
+          transitionKey: 'tab_${_selected.name}',
+          child: _bodyFor(_selected),
+        ),
+        bottomNavigationBar: Builder(
+          builder: (context) {
+            final scheme = Theme.of(context).colorScheme;
+
+            return NavigationBar(
+              // Five labels overflow in German and Russian at narrow widths;
+              // showing only the selected one keeps them readable without
+              // truncating.
+              labelBehavior: MediaQuery.sizeOf(context).width < 400
+                  ? NavigationDestinationLabelBehavior.onlyShowSelected
+                  : NavigationDestinationLabelBehavior.alwaysShow,
+              // Every destination is in the bar, so there is always a bar
+              // position: the fallback only guards a build whose tab is not in
+              // `bottomBar`, which would be a programming error, not a state.
+              selectedIndex: _selected.bottomBarIndex ?? 0,
+              onDestinationSelected: (index) {
+                final tab = LuciTab.fromBottomIndex(index);
+                if (tab == null) return;
+                if (isRebooting && !tab.allowedDuringReboot) return;
+                _select(tab);
+              },
+              destinations: [
+                for (final tab in LuciTab.bottomBar)
+                  _buildDestination(context, tab, isRebooting, scheme),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -168,7 +157,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     bool isRebooting,
     ColorScheme scheme,
   ) {
-    final d = _destination(tab, context);
+    final d = luciDestination(tab, context);
     final locked = isRebooting && !tab.allowedDuringReboot;
     // Grey is only correct in a light theme; the disabled tone has to come
     // from the scheme or the bar looks broken in dark mode.
